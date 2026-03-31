@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Installers
+*.dmg
+
+# VSCode
+.vscode/
+
+# Sensitive and local data
+.env
+chunks.json
+
+# Downloaded / scraped content
+.page_cache/
+web-site/

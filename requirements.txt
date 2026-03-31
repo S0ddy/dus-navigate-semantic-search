@@ -1,0 +1,7 @@
+streamlit
+opensearch-py
+python-dotenv
+sentence-transformers
+beautifulsoup4
+requests
+tiktoken
