@@ -31,6 +31,7 @@ except ImportError:
 DEFAULT_CHUNK_SIZE = 512
 DEFAULT_OVERLAP = 50
 MIN_CHUNK_SIZE = 100
+MERGE_THRESHOLD = 200       # sections smaller than this are merged with the next
 ENCODING_NAME = "cl100k_base"
 
 ALLOWLIST = {'h1', 'h2', 'h3', 'h4', 'p', 'li', 'blockquote', 'td', 'th', 'dt', 'dd', 'pre', 'code'}
@@ -108,13 +109,46 @@ def _find_main_content(soup: BeautifulSoup):
     return soup
 
 
+def extract_table_as_text(table) -> str:
+    """Convert a table to readable 'header: value' rows."""
+    headers = [th.get_text(strip=True) for th in table.find_all('th')]
+    rows = []
+    for tr in table.find_all('tr'):
+        cells = [td.get_text(strip=True) for td in tr.find_all('td')]
+        if not cells:
+            continue
+        if headers and len(headers) == len(cells):
+            rows.append(', '.join(f"{h}: {c}" for h, c in zip(headers, cells)))
+        else:
+            rows.append(', '.join(c for c in cells if c))
+    return '\n'.join(rows)
+
+
 def phase2_semantic_extract(soup: BeautifulSoup) -> list:
     main_content = _find_main_content(soup)
     content_blocks = []
     current_heading = ''
 
     for element in main_content.descendants:
-        if not hasattr(element, 'name') or element.name not in ALLOWLIST:
+        if not hasattr(element, 'name'):
+            continue
+
+        # Handle tables as a single unit
+        if element.name == 'table':
+            table_text = extract_table_as_text(element)
+            if table_text:
+                content_blocks.append({
+                    'text': table_text,
+                    'section_heading': current_heading,
+                    'element_type': 'table',
+                })
+            continue
+
+        # Skip individual cells — already captured by table handler above
+        if element.find_parent('table'):
+            continue
+
+        if element.name not in ALLOWLIST:
             continue
 
         text = element.get_text(strip=True)
@@ -156,6 +190,21 @@ def group_into_sections(content_blocks: list) -> list:
         sections.append(current_section)
 
     return sections
+
+
+def merge_small_sections(sections: list, threshold: int = MERGE_THRESHOLD) -> list:
+    """Merge sections that are too small to be useful on their own."""
+    merged = []
+    i = 0
+    while i < len(sections):
+        section = dict(sections[i])
+        while i + 1 < len(sections) and count_tokens(section['text']) < threshold:
+            next_sec = sections[i + 1]
+            section['text'] = section['text'].rstrip('\n') + '\n' + next_sec['text']
+            i += 1
+        merged.append(section)
+        i += 1
+    return merged
 
 
 # ── Phase 4: Token-Aware Chunking ─────────────────────────────────────────────
@@ -284,6 +333,7 @@ def process_html_to_chunks(html: str, url: str, chunk_size: int = DEFAULT_CHUNK_
         return []
 
     sections = group_into_sections(content_blocks)
+    sections = merge_small_sections(sections)
     document_id = generate_document_id(url)
 
     all_chunks = []
@@ -300,6 +350,9 @@ def process_html_to_chunks(html: str, url: str, chunk_size: int = DEFAULT_CHUNK_
 
         for chunk_text in text_chunks:
             chunk_id = generate_chunk_id(document_id, global_chunk_index)
+            # Prepend heading so every chunk carries its context
+            if section_heading and not chunk_text.startswith(section_heading):
+                chunk_text = f"{section_heading}\n{chunk_text}"
             chunk_payload = {
                 'text': chunk_text,
                 'metadata': create_chunk_metadata(
