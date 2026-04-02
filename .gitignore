@@ -20,7 +20,6 @@ __pycache__/
 
 # Sensitive and local data
 .env
-chunks.json
 
 # Downloaded / scraped content
 .page_cache/
