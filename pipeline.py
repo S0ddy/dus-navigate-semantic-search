@@ -80,7 +80,7 @@ def update_page(url: str):
     print(f"Deleting existing chunks for {url} (document_id={document_id})...")
     config.STORE.delete_page_chunks(document_id)
 
-    html    = config.SCRAPER.fetch(url)
+    html    = config.SCRAPER.fetch(url, force_refresh=True)
     chunks  = process_html_to_chunks(html, url)
     texts   = [c["text"] for c in chunks]
     vectors = config.EMBEDDER.embed(texts)

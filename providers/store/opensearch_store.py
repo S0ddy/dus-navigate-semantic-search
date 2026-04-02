@@ -32,7 +32,8 @@ class OpenSearchStore(BaseStore):
     def delete_page_chunks(self, document_id: str):
         self.client.delete_by_query(
             index=self.index,
-            body={"query": {"term": {"document_id": document_id}}}
+            body={"query": {"term": {"document_id": document_id}}},
+            params={"wait_for_completion": "true"},
         )
 
     def search(self, vector: list, k: int = 5) -> list:

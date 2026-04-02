@@ -23,11 +23,11 @@ class RequestsScraper(BaseScraper):
         self._session = requests.Session()
         self._session.headers.update(HEADERS)
 
-    def fetch(self, url: str) -> str:
+    def fetch(self, url: str, force_refresh: bool = False) -> str:
         node_id = url.rsplit("/", 1)[-1]
         cache_file = self.cache_dir / f"{node_id}.html"
 
-        if cache_file.exists():
+        if cache_file.exists() and not force_refresh:
             return cache_file.read_text(encoding="utf-8")
 
         resp = self._session.get(url, timeout=15)
