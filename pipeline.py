@@ -16,7 +16,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
 import config
-from parse_chunks import process_html_to_chunks
+from parse_chunks import process_html_to_chunks, generate_document_id
 
 OVERVIEW_HTML = "web-site/Overview _ Fannie Mae Multifamily Guide.html"
 BASE_URL      = "https://mfguide.fanniemae.com"
@@ -75,14 +75,32 @@ def run(urls: list = None, save_path: str = None):
     print(f"\nDone. Total chunks indexed: {len(all_chunks)}")
 
 
+def update_page(url: str):
+    document_id = generate_document_id(url)
+    print(f"Deleting existing chunks for {url} (document_id={document_id})...")
+    config.STORE.delete_page_chunks(document_id)
+
+    html    = config.SCRAPER.fetch(url)
+    chunks  = process_html_to_chunks(html, url)
+    texts   = [c["text"] for c in chunks]
+    vectors = config.EMBEDDER.embed(texts)
+    docs    = [{"text": c["text"], "embedding": v, **c["metadata"]} for c, v in zip(chunks, vectors)]
+    config.STORE.index_documents(docs)
+    print(f"Done. {len(docs)} chunks indexed for {url}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Scrape, parse, embed, and index MF Guide sections.")
-    parser.add_argument("--url",  help="Process a single URL instead of all sections")
-    parser.add_argument("--save", metavar="FILE", help="Also save chunks to a JSON file")
+    parser.add_argument("--url",    help="Process a single URL instead of all sections")
+    parser.add_argument("--update", metavar="URL", help="Delete and re-index a single page")
+    parser.add_argument("--save",   metavar="FILE", help="Also save chunks to a JSON file")
     args = parser.parse_args()
 
-    urls = [args.url] if args.url else None
-    run(urls=urls, save_path=args.save)
+    if args.update:
+        update_page(args.update)
+    else:
+        urls = [args.url] if args.url else None
+        run(urls=urls, save_path=args.save)
 
 
 if __name__ == "__main__":

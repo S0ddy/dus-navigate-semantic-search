@@ -1,6 +1,6 @@
 import streamlit as st
 import config
-from pipeline import run as run_pipeline
+from pipeline import run as run_pipeline, update_page
 from search import search
 
 st.set_page_config(page_title="MF Guide Search", layout="centered")
@@ -16,6 +16,17 @@ with st.expander("Admin"):
                 st.success("Pipeline complete.")
             except Exception as e:
                 st.error(f"Pipeline failed: {e}")
+
+    st.divider()
+    st.markdown("**Update a single page**")
+    update_url = st.text_input("Page URL", placeholder="https://mfguide.fanniemae.com/node/1234", key="update_url")
+    if st.button("Update page", type="secondary", disabled=not update_url):
+        with st.spinner(f"Updating {update_url}..."):
+            try:
+                update_page(update_url)
+                st.success(f"Page updated successfully.")
+            except Exception as e:
+                st.error(f"Update failed: {e}")
 
 # ── Search ────────────────────────────────────────────────────────────────────
 

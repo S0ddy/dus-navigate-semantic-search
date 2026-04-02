@@ -29,6 +29,12 @@ class OpenSearchStore(BaseStore):
             except Exception as e:
                 print(f"  [ERROR] Failed to index {doc.get('chunk_id')}: {e}", file=sys.stderr)
 
+    def delete_page_chunks(self, document_id: str):
+        self.client.delete_by_query(
+            index=self.index,
+            body={"query": {"term": {"document_id": document_id}}}
+        )
+
     def search(self, vector: list, k: int = 5) -> list:
         body = {
             "size": k,
